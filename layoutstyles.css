@@ -1,0 +1,45 @@
+body {
+    background-color: aquamarine;
+    font-family: Georgia, 'Times New Roman', Times, serif;
+}
+
+.common {
+    background-color: blueviolet;
+    border: 2px solid grey;
+    position:absolute
+}
+
+.header {
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    height: 100px;
+}
+
+.left {
+    top: 115px; /* header height + gap */
+    left: 5px;
+    bottom: 70px; /* footer height + gap */
+    width: 150px;
+}
+
+.right {
+    top: 115px;
+    right: 5px;
+    bottom: 70px;
+    width: 150px;
+}
+
+.main {
+    top: 115px;
+    left: 165px; /* left width + gap */
+    right: 165px; /* right width + gap */
+    bottom: 70px;
+}
+
+.footer {
+    height: 55px;
+    bottom: 5px;
+    left: 5px;
+    right: 5px;
+}

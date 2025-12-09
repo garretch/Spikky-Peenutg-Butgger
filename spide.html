@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Web Swinger</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; user-select: none; }
+        canvas { display: block; }
+        #hud { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; text-shadow: 1px 1px 2px black; pointer-events: none;}
+    </style>
+</head>
+<body>
+    <div id="hud">Hold SPACE or CLICK to swing! Keep moving right!</div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas to full screen
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // --- Config & Physics Constants ---
+    const GRAVITY = 0.6;
+    const AIR_DRAG = 0.99; 
+    const WEB_TENSION = 0.05; 
+    const SWING_BOOST = 0.3; 
+    const MAX_WEB_LENGTH = 400;
+
+    let cameraX, score, gameOver;
+    let buildings = [];
+    const buildingColors = ['#555', '#666', '#777', '#444'];
+
+    // --- The Player (Spidey) ---
+    const spidey = {
+        x: 0, y: 0, radius: 15, vx: 0, vy: 0, color: '#E62429'
+    };
+
+    // --- The Web ---
+    const web = {
+        active: false, anchorX: 0, anchorY: 0,
+    };
+
+    // --- Initialization / Reset ---
+    function initGame() {
+        cameraX = 0;
+        score = 0;
+        gameOver = false;
+        
+        // Reset Player
+        spidey.x = 200;
+        spidey.y = canvas.height / 2;
+        spidey.vx = 5; // Start with momentum
+        spidey.vy = 0;
+
+        // Reset Web
+        web.active = false;
+
+        // Reset Buildings
+        buildings = [];
+        let currentX = 0;
+        while (currentX < canvas.width * 2) {
+            addBuilding(currentX);
+            currentX += buildings[buildings.length-1].w + Math.random() * 100 + 50;
+        }
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+    }
+
+    function addBuilding(xPos) {
+        const width = Math.random() * 150 + 80;
+        const minHeight = 150;
+        const height = Math.random() * (canvas.height * 0.6) + minHeight; 
+        buildings.push({
+            x: xPos, y: 0, w: width, h: height,
+            color: buildingColors[Math.floor(Math.random() * buildingColors.length)]
+        });
+    }
+
+    // --- Physics Logic ---
+    function findWebAnchorPoint() {
+        let closestDist = Infinity;
+        let anchorFound = null;
+        const lookAheadX = spidey.x + spidey.vx * 10 + 200;
+
+        for (const b of buildings) {
+            if (b.x < lookAheadX && b.x + b.w > spidey.x - 100) {
+                 const anchorXCand = Math.max(b.x, Math.min(spidey.x + 100, b.x + b.w)); 
+                 const anchorYCand = b.h;
+                 const dist = Math.hypot(anchorXCand - spidey.x, anchorYCand - spidey.y);
+
+                 if (dist < MAX_WEB_LENGTH && anchorYCand < spidey.y) {
+                     if(dist < closestDist) {
+                         closestDist = dist;
+                         anchorFound = { x: anchorXCand, y: anchorYCand };
+                     }
+                 }
+            }
+        }
+        return anchorFound;
+    }
+
+    function update() {
+        if (gameOver) return;
+
+        // Input Handling for Web
+        if (input.isPressing) {
+            if (!web.active) {
+                const anchor = findWebAnchorPoint();
+                if (anchor) {
+                    web.active = true;
+                    web.anchorX = anchor.x;
+                    web.anchorY = anchor.y;
+                }
+            }
+        } else {
+            web.active = false;
+        }
+
+        // Physics
+        if (web.active) {
+            const dx = web.anchorX - spidey.x;
+            const dy = web.anchorY - spidey.y;
+            const forceX = dx * WEB_TENSION;
+            const forceY = dy * WEB_TENSION;
+
+            spidey.vx += forceX;
+            spidey.vy += forceY;
+            if(spidey.vx > 0) spidey.vx += SWING_BOOST;
+            spidey.vy += GRAVITY * 0.5;
+        } else {
+            spidey.vy += GRAVITY;
+        }
+
+        spidey.vx *= AIR_DRAG;
+        spidey.vy *= AIR_DRAG;
+        spidey.x += spidey.vx;
+        spidey.y += spidey.vy;
+
+        // Camera & World Generation
+        const targetCameraX = spidey.x - canvas.width / 3;
+        cameraX += (targetCameraX - cameraX) * 0.1;
+        score = Math.floor(spidey.x / 10);
+        document.getElementById('hud').innerText = `Distance: ${score}`;
+
+        const lastBuilding = buildings[buildings.length - 1];
+        if (lastBuilding.x < cameraX + canvas.width + 200) {
+            addBuilding(lastBuilding.x + lastBuilding.w + Math.random() * 200 + 50);
+        }
+        if (buildings[0].x + buildings[0].w < cameraX - 100) {
+            buildings.shift();
+        }
+
+        // Collision (Death)
+        if (spidey.y > canvas.height + 100) {
+            gameOver = true;
+        }
+        // Ceiling Bonk
+        if (spidey.y < 0 && spidey.vy < 0) {
+            spidey.vy = 0; spidey.y = 0;
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.translate(-cameraX, 0);
+
+        // Web
+        if (web.active) {
+            ctx.beginPath();
+            ctx.moveTo(spidey.x, spidey.y);
+            ctx.lineTo(web.anchorX, web.anchorY);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Buildings
+        for (const b of buildings) {
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(b.x, b.y, b.w, b.h);
+        }
+
+        // Player
+        ctx.fillStyle = spidey.color;
+        ctx.beginPath();
+        ctx.arc(spidey.x, spidey.y, spidey.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eyes
+        ctx.fillStyle = 'white';
+        ctx.beginPath(); ctx.ellipse(spidey.x + 5, spidey.y - 3, 4, 6, Math.PI/4, 0, 2*Math.PI); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(spidey.x - 5, spidey.y - 3, 4, 6, -Math.PI/4, 0, 2*Math.PI); ctx.fill();
+
+        ctx.restore();
+
+        // Game Over Screen
+        if (gameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '40px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 20);
+            ctx.font = '20px sans-serif';
+            ctx.fillText(`Distance: ${score}`, canvas.width/2, canvas.height/2 + 20);
+            ctx.fillText("Click or Press Space to Retry", canvas.width/2, canvas.height/2 + 60);
+        }
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+        if (!gameOver) {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+
+    // --- Input Handling ---
+    const input = { isPressing: false };
+
+    function handleStart(e) {
+        if (e.type === 'keydown' && e.code !== 'Space') return;
+        
+        // RESTART LOGIC
+        if (gameOver) {
+            initGame();
+            return;
+        }
+
+        input.isPressing = true;
+    }
+
+    function handleEnd(e) {
+        if (e.type === 'keyup' && e.code !== 'Space') return;
+        input.isPressing = false;
+    }
+
+    window.addEventListener('keydown', handleStart);
+    window.addEventListener('keyup', handleEnd);
+    window.addEventListener('mousedown', handleStart);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchstart', handleStart, {passive: false});
+    window.addEventListener('touchend', handleEnd);
+
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if(gameOver) draw(); 
+    });
+
+    // Start
+    initGame();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+body{background-color: rgb(138, 224, 208);}
+h1{
+    color: rgb(0, 0, 0);
+    text-align: center;
+    font-size:72px;
+    font-weight: bold;
+}
+
+h2{
+    color: rgb(15, 0, 174);
+    text-align: center;
+    font-size:54px;
+    font-weight: bold;
+    text-decoration: underline;
+}
+p1{
+    color: rgb(15, 0, 174);
+    text-align: center;
+    font-size:54px;
+    font-weight: bold;
+    text-decoration: underline;
+}

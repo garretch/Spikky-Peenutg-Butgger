@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Log Jumper</title>
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #333; font-family: sans-serif; overflow: hidden; }
+        canvas { background: #87CEEB; border: 4px solid #fff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #instructions { position: absolute; top: 10px; color: white; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="instructions">Press SPACE or CLICK to Jump</div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Game Variables
+    let frame = 0;
+    let score = 0;
+    let gameSpeed = 5;
+    let isGameOver = false;
+
+    // Player (The Jumper)
+    const player = {
+        x: 50,
+        y: 300,
+        w: 30,
+        h: 50,
+        dy: 0,
+        jumpPower: -12,
+        gravity: 0.6,
+        grounded: false,
+        color: '#333'
+    };
+
+    // Obstacles (Logs)
+    const logs = [];
+
+    function spawnLog() {
+        // Randomize gap between logs
+        if (frame % (Math.floor(Math.random() * 50) + 70) === 0) {
+            logs.push({
+                x: canvas.width,
+                y: 320, // Ground level - height
+                w: 20,
+                h: 30,
+                color: '#8B4513'
+            });
+        }
+    }
+
+    function update() {
+        if (isGameOver) {
+            if (keys['Space'] || keys['Click']) resetGame();
+            return;
+        }
+
+        frame++;
+        score++;
+
+        // Physics
+        player.dy += player.gravity;
+        player.y += player.dy;
+
+        // Ground Collision
+        if (player.y + player.h >= 350) {
+            player.y = 350 - player.h;
+            player.dy = 0;
+            player.grounded = true;
+        } else {
+            player.grounded = false;
+        }
+
+        // Jump
+        if ((keys['Space'] || keys['Click']) && player.grounded) {
+            player.dy = player.jumpPower;
+        }
+
+        // Logs Logic
+        spawnLog();
+        for (let i = 0; i < logs.length; i++) {
+            let log = logs[i];
+            log.x -= gameSpeed;
+
+            // Collision Detection
+            if (
+                player.x < log.x + log.w &&
+                player.x + player.w > log.x &&
+                player.y < log.y + log.h &&
+                player.y + player.h > log.y
+            ) {
+                isGameOver = true;
+            }
+
+            // Remove off-screen logs
+            if (log.x + log.w < 0) {
+                logs.splice(i, 1);
+                i--;
+            }
+        }
+        
+        // Speed up game slightly over time
+        if (frame % 500 === 0) gameSpeed += 0.5;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Ground
+        ctx.fillStyle = '#228B22'; // Green grass
+        ctx.fillRect(0, 350, canvas.width, 50);
+
+        // Draw Player
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+
+        // Draw Logs
+        for (let log of logs) {
+            ctx.fillStyle = log.color;
+            ctx.fillRect(log.x, log.y, log.w, log.h);
+        }
+
+        // Draw Score
+        ctx.fillStyle = 'black';
+        ctx.font = '20px Arial';
+        ctx.fillText("Score: " + Math.floor(score/10), 20, 30);
+
+        if (isGameOver) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '40px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
+            ctx.font = '20px Arial';
+            ctx.fillText("Press Space to Restart", canvas.width/2, canvas.height/2 + 40);
+        }
+    }
+
+    function loop() {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+    }
+
+    function resetGame() {
+        player.y = 300;
+        player.dy = 0;
+        logs.length = 0;
+        score = 0;
+        gameSpeed = 5;
+        frame = 0;
+        isGameOver = false;
+    }
+
+    // Input Handling
+    const keys = {};
+    window.addEventListener('keydown', e => {
+        if(e.code === 'Space') keys['Space'] = true;
+    });
+    window.addEventListener('keyup', e => {
+        if(e.code === 'Space') keys['Space'] = false;
+    });
+    window.addEventListener('mousedown', () => keys['Click'] = true);
+    window.addEventListener('mouseup', () => keys['Click'] = false);
+    window.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent scrolling
+        keys['Click'] = true;
+    });
+    window.addEventListener('touchend', () => keys['Click'] = false);
+
+    // Start
+    loop();
+</script>
+</body>
+</html>
